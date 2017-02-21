@@ -10,7 +10,7 @@
 #define WINNAME1 "Binary Image"
 #define MaxContourArea 450		// 面积大于该值的轮廓不是装甲的灯条
 #define MinContourArea 15		// 面积小于该值的轮廓不是装甲的灯条
-#define DEBUG
+//#define DEBUG
 
 // 全局变量
 map<string, string> config;
@@ -85,7 +85,7 @@ int main()
 	createTrackbar("Threshold", WINNAME, &m_threshold, 255, 0);
 
 	//VideoCapture cap(fileName);
-	VideoCapture cap(1);
+	VideoCapture cap(0);
 
 	if (!cap.isOpened()) {
 		cout << "未打开视频文件" << endl;
@@ -185,8 +185,8 @@ int main()
 //			cout << rotatedRectsOfLights[i].angle << ", ";
 
 		// 绘制每个灯条的拟合椭圆
-		for (int i = 0; i < rotatedRectsOfLights.size(); i++)
-			ellipse(frame_, rotatedRectsOfLights[i], Scalar(0, 255, 0), 2, LINE_AA);
+//		for (int i = 0; i < rotatedRectsOfLights.size(); i++)
+//			ellipse(frame_, rotatedRectsOfLights[i], Scalar(0, 255, 0), 2, LINE_AA);
 
         tmpAngle0 = 10;
 		tmpAngle1 = 170;
@@ -286,7 +286,7 @@ int main()
 HERE:
 		if (!sended)
 			Serialport1.usart3_send(pitchOut, yawOut);
-		
+/*		
         cout << static_cast<int>(pitchOut) << ", " << static_cast<int>(yawOut) << endl;
 		imshow(WINNAME, frame_);
 
@@ -302,7 +302,7 @@ HERE:
 			showBinaryImage = !showBinaryImage;
 		} else if (key == int('1')) {
 			waitKey(0);
-		}
+		}*/
 	}
 
 	return 0;
