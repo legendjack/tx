@@ -230,6 +230,7 @@ int main()
 			int disY = centerOfArmor.y - targetPoint.y;
 
 			disX = -disX;
+			//disX = disX / 2;
 			disX += 100;
 			if (disX > 200)
 				disX = 200;
