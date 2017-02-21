@@ -5,6 +5,9 @@
 #include <opencv2/opencv.hpp>
 #include <iostream>
 
+#define RED 0					// 代表红色
+#define BLUE 1					// 代表蓝色
+
 using namespace std;
 using namespace cv;
 

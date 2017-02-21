@@ -5,16 +5,11 @@
 #include "getConfig.h"
 #include "serialsom.h"
 
-using namespace std;
-using namespace cv;
-
 // 宏定义
 #define WINNAME	"Armor Recognition"
 #define WINNAME1 "Binary Image"
 #define MaxContourArea 450		// 面积大于该值的轮廓不是装甲的灯条
 #define MinContourArea 15		// 面积小于该值的轮廓不是装甲的灯条
-#define RED 0					// 代表红色
-#define BLUE 1					// 代表蓝色
 #define DEBUG
 
 // 全局变量
@@ -28,16 +23,15 @@ int Width, Height;				// 视频宽高
 int detectColor;				// 敌军装甲的颜色：0-红色，1-蓝色
 string fileName;				// 视频的文件名
 Point centerOfArmor;
-int disX, disY, disZ;
-float tmpAngle0 ;
+//int disX, disY, disZ;
+float tmpAngle0;
 float tmpAngle1;
 bool findArmor;
-//int yawOut = 50;
-//int pitchOut = 50;
-uint8_t yawOut = 50;
-uint8_t pitchOut = 50;
+uint8_t yawOut = 250;
+uint8_t pitchOut = 250;
 int frameCount = 150;
 Point targetPoint(340, 226);
+bool sended;					// 串口信息是否已经发送
 
 // 计算直方图需要的参数
 Mat hMat, sMat, vMat;			// HSV单通道图
@@ -103,6 +97,10 @@ int main()
 	****************************************/
 	while (true)
 	{
+		sended = false;
+		yawOut = 250;
+		pitchOut = 250;
+		
 		cap >> frame;
 		if (frame.empty())
 			break;
@@ -210,7 +208,7 @@ int main()
 					circle(frame_, rotatedRectsOfLights[i].center, 3, Scalar(0, 0, 255), -1, LINE_AA);
 					circle(frame_, rotatedRectsOfLights[j].center, 3, Scalar(0, 0, 255), -1, LINE_AA);
 					centerOfArmor = centerOf2Points(rotatedRectsOfLights[i].center, rotatedRectsOfLights[j].center);
-					targetPoint.x = 17 * rotatedRectHeight / 21 + 311;
+					//targetPoint.x = 17 * rotatedRectHeight / 21 + 311;
 					if (angleDifference < 10)
 						tmpAngle0 = angleDifference;
 					else if (angleDifference > 170)
@@ -222,15 +220,14 @@ int main()
 		}
 		//cout << endl << "---------------" << endl;
 
-		yawOut = 250;
-		pitchOut = 250;
-
 		if (findArmor) {
+			// 如果检测到了装甲的位置，frameCount置零，并向串口发送装甲的位置信息
+			
             frameCount = 0;
 
 			circle(frame_, centerOfArmor, 10, Scalar(0, 0, 255), 2, LINE_AA);
-			disX = centerOfArmor.x - targetPoint.x;
-			disY = centerOfArmor.y - targetPoint.y;
+			int disX = centerOfArmor.x - targetPoint.x;
+			int disY = centerOfArmor.y - targetPoint.y;
 
 			disX = -disX;
 			disX += 100;
@@ -244,23 +241,51 @@ int main()
 				disY = 200;
 			else if (disY < 0)
 				disY = 0;
-			
+
 			yawOut = static_cast<uint8_t>(disX);
 			pitchOut = static_cast<uint8_t>(disY);
-			
+
  			if (fd >= 0)
-				Serialport1.usart3_send(pitchOut, yawOut);	// 发送竖直方向和水平方向移动速度
+				sended = Serialport1.usart3_send(pitchOut, yawOut);	// 发送竖直方向和水平方向移动速度
 		} else {
+			// 如果某一帧开始没有检测到装甲，frameCount自加一
             frameCount++;
-            if (frameCount >= 150) {
+            if (frameCount >= 450) {
+				// 如果连续150帧没有检测到装甲，则认定为没有目标，串口发送信息进入搜索模式
                 frameCount--;
                 pitchOut = 250;
-                Serialport1.usart3_send(pitchOut, yawOut);
-            }
+				yawOut = 250;
+                sended = Serialport1.usart3_send(pitchOut, yawOut);
+            } else if (rotatedRectsOfLights.size() >= 2) {
+				// 如果没有检测到装甲，且frameCount<150，且画面中灯条的数量大于2,则向窗口发送灯条的位置信息
+				int disX = centerOfArmor.x - rotatedRectsOfLights[0].center.x;
+				int disY = centerOfArmor.y - rotatedRectsOfLights[0].center.y;
+
+				disX = -disX;
+				disX += 100;
+				if (disX > 200)
+					disX = 200;
+				else if (disX < 0)
+					disX = 0;
+
+				disY += 100;
+				if (disY > 200)
+					disY = 200;
+				else if (disY < 0)
+					disY = 0;
+
+				yawOut = static_cast<uint8_t>(disX);
+				pitchOut = static_cast<uint8_t>(disY);
+
+				if (fd >= 0)
+					sended = Serialport1.usart3_send(pitchOut, yawOut);	// 发送竖直方向和水平方向移动速度
+			}
 		}
-		//circle(frame_, Point(366, 238), 5, Scalar(0, 255, 255), -1, LINE_AA);
 
 HERE:
+		if (!sended)
+			Serialport1.usart3_send(pitchOut, yawOut);
+		
         cout << static_cast<int>(pitchOut) << ", " << static_cast<int>(yawOut) << endl;
 		imshow(WINNAME, frame_);
 
