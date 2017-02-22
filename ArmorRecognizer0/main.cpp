@@ -10,28 +10,29 @@
 #define WINNAME1 "Binary Image"
 #define MaxContourArea 450		// 面积大于该值的轮廓不是装甲的灯条
 #define MinContourArea 15		// 面积小于该值的轮廓不是装甲的灯条
+#define Width 640				// 视频宽
+#define Height 480				// 视频高
 #define DEBUG
 
 // 全局变量
 map<string, string> config;
 Mat frame, gray;				// 视频帧及其灰度图
 Mat binaryImage, hsvImage;		// 二值图及HSV图，使用cvtColor得到
+Mat element, element1;			// 开运算参数
+string fileName;				// 视频的文件名
 int m_threshold;				// 阈值
 bool showBinaryImage = false;	// 是否显示二值图
-Mat element, element1;			// 开运算参数
-int Width, Height;				// 视频宽高
 int detectColor;				// 敌军装甲的颜色：0-红色，1-蓝色
-string fileName;				// 视频的文件名
-Point centerOfArmor;
 //int disX, disY, disZ;
 float tmpAngle0;
 float tmpAngle1;
-bool findArmor;
 uint8_t yawOut = 250;
 uint8_t pitchOut = 250;
 int frameCount = 150;
-Point targetPoint(340, 226);
+bool findArmor;
 bool sended;					// 串口信息是否已经发送
+Point targetPoint(340, 226);
+Point centerOfArmor;
 
 // 计算直方图需要的参数
 Mat hMat, sMat, vMat;			// HSV单通道图
@@ -49,14 +50,14 @@ int main()
 	if (fd >= 0)
 		Serialport1.set_opt(115200, 8, 'N', 1);
  	else
-		cout << "未打开串口..." << endl;
+		cout << "open serialport : failed" << endl;
 
 	/***************************************
 			读取 video.cfg 里面的键值对
 	****************************************/
 	bool read = ReadConfig("video.cfg", config);	// 把video.cfg读入config键值对，成功返回true
 	if (!read) {
-		cout << "无法读取 video.cfg" << endl;
+		cout << "cannot open file : video.cfg" << endl;
 		return -1;
 	}
 
@@ -64,8 +65,6 @@ int main()
 				全局变量初始化
 	****************************************/
 	m_threshold = atoi(config["THRESHOLD"].c_str());
-	Width = atoi(config["WIDTH"].c_str());
-	Height = atoi(config["HEIGHT"].c_str());
 	detectColor = atoi(config["DETECTCOLOR"].c_str());
 	fileName = config["FILENAME"].c_str();
 
@@ -81,14 +80,16 @@ int main()
 	vector<RotatedRect> rotatedRectsOfLights;	// 蓝色/红色灯条的RotatedRect
 	vector<RotatedRect> rotatedRects;			// 对面积在指定范围内的轮廓拟合椭圆，得到相应的旋转矩形
 
+#ifdef DEBUG
 	namedWindow(WINNAME, WINDOW_AUTOSIZE);
 	createTrackbar("Threshold", WINNAME, &m_threshold, 255, 0);
+#endif
 
 	//VideoCapture cap(fileName);
 	VideoCapture cap(1);
 
 	if (!cap.isOpened()) {
-		cout << "未打开视频文件" << endl;
+		cout << "VideoCapture initialize : failed" << endl;
 		return -1;
 	}
 
@@ -102,6 +103,7 @@ int main()
 		pitchOut = 250;
 		
 		cap >> frame;
+		
 		if (frame.empty())
 			break;
 
@@ -184,9 +186,11 @@ int main()
 //		for (int i = 0; i < rotatedRectsOfLights.size(); i++)
 //			cout << rotatedRectsOfLights[i].angle << ", ";
 
+#ifdef DEBUG
 		// 绘制每个灯条的拟合椭圆
 		for (int i = 0; i < rotatedRectsOfLights.size(); i++)
 			ellipse(frame_, rotatedRectsOfLights[i], Scalar(0, 255, 0), 2, LINE_AA);
+#endif
 
         tmpAngle0 = 10;
 		tmpAngle1 = 170;
@@ -205,8 +209,10 @@ int main()
 				if ((angleDifference < 10 || angleDifference > 170) &&
 					(angleDifference < tmpAngle0 || angleDifference > tmpAngle1) &&
 					yDifference < 7) {
+#ifdef DEBUG
 					circle(frame_, rotatedRectsOfLights[i].center, 3, Scalar(0, 0, 255), -1, LINE_AA);
 					circle(frame_, rotatedRectsOfLights[j].center, 3, Scalar(0, 0, 255), -1, LINE_AA);
+#endif
 					centerOfArmor = centerOf2Points(rotatedRectsOfLights[i].center, rotatedRectsOfLights[j].center);
 					//targetPoint.x = 17 * rotatedRectHeight / 21 + 311;
 					if (angleDifference < 10)
@@ -230,7 +236,6 @@ int main()
 			int disY = centerOfArmor.y - targetPoint.y;
 
 			disX = -disX;
-			//disX = disX / 2;
 			disX += 100;
 			if (disX > 200)
 				disX = 200;
@@ -286,7 +291,7 @@ int main()
 HERE:
 		if (!sended)
 			Serialport1.usart3_send(pitchOut, yawOut);
-		
+#ifdef DEBUG		
         cout << static_cast<int>(pitchOut) << ", " << static_cast<int>(yawOut) << endl;
 		imshow(WINNAME, frame_);
 
@@ -303,6 +308,7 @@ HERE:
 		} else if (key == int('1')) {
 			waitKey(0);
 		}
+#endif
 	}
 
 	return 0;
